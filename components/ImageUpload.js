@@ -1,4 +1,9 @@
-import { faCamera } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCamera,
+  faImage,
+  faImages,
+  faTimesCircle,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import Axios from "axios";
 import Constants from "expo-constants";
@@ -6,8 +11,15 @@ import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import { Image, StyleSheet, TouchableOpacity } from "react-native";
 import API from "../constants/API";
+import { connectActionSheet } from "@expo/react-native-action-sheet";
 
-const ImageUpload = ({ image, onUpload = () => {}, style = {} }) => {
+const ImageUpload = ({
+  image,
+  onUpload = () => {},
+  style = {},
+  navigation,
+  ...props
+}) => {
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -17,20 +29,56 @@ const ImageUpload = ({ image, onUpload = () => {}, style = {} }) => {
     });
 
     if (!result.cancelled) {
-      Axios.post(
-        API.UPLOAD_IMAGE,
-        { image: result.base64 },
-        {
-          headers: {
-            Authorization: "Client-ID 3367d62d26cbb31",
-          },
-        }
-      )
-        .then((res) => {
-          onUpload(res.data.data.link);
-        })
-        .catch((err) => alert("IMGUR ERROR " + err));
+      uploadImage(result.base64);
     }
+  };
+
+  const uploadImage = (base64) => {
+    Axios.post(
+      API.UPLOAD_IMAGE,
+      { image: base64 },
+      {
+        headers: {
+          Authorization: "Client-ID 3367d62d26cbb31",
+        },
+      }
+    )
+      .then((res) => {
+        // console.log(res.data);
+        onUpload(res.data.data.link);
+      })
+      .catch((err) => alert("IMGUR ERROR " + err));
+  };
+
+  const _onOpenActionSheet = () => {
+    const options = ["Photo picker", "Camera", "Cancel"];
+    const icons = [
+      <FontAwesomeIcon icon={faCamera} />,
+      <FontAwesomeIcon icon={faImages} />,
+      <FontAwesomeIcon icon={faTimesCircle} />,
+    ];
+    const cancelButtonIndex = 2;
+
+    props.showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex,
+        icons,
+      },
+      (buttonIndex) => {
+        // Do something here depending on the button index selected
+        switch (buttonIndex) {
+          case 0:
+            pickImage();
+            break;
+          case 1:
+            navigation.navigate("Camera", { image: (res) => uploadImage(res) });
+            break;
+          default:
+            break;
+        }
+      }
+    );
   };
 
   React.useEffect(() => {
@@ -50,7 +98,10 @@ const ImageUpload = ({ image, onUpload = () => {}, style = {} }) => {
   }, []);
 
   return (
-    <TouchableOpacity style={[styles.imageBox, style]} onPress={pickImage}>
+    <TouchableOpacity
+      style={[styles.imageBox, style]}
+      onPress={_onOpenActionSheet}
+    >
       {image ? (
         <Image
           source={{ uri: image }}
@@ -63,7 +114,7 @@ const ImageUpload = ({ image, onUpload = () => {}, style = {} }) => {
   );
 };
 
-export default ImageUpload;
+export default connectActionSheet(ImageUpload);
 
 const styles = StyleSheet.create({
   imageBox: {
